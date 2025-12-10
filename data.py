@@ -22,6 +22,7 @@ def load_driving_log(csv_path='driving_log.csv'):
     # columns are unamed, so rename them
     df.rename(columns={0: 'Center', 1: 'Left', 2: 'Right', 3: 'Steering', 4: 'Throttle', 5: 'Brake', 6: 'Speed'}, inplace=True)
     # return only Center and Steering columns
+    
     return df[['Center', 'Steering']]
 
 
