@@ -1,6 +1,5 @@
 import numpy as np
 
-# batching training data
 def data_generator(images, steering_angles, batch_size=32):
     """
     Function to generate batches of training data
