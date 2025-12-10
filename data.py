@@ -47,7 +47,7 @@ def plot_steering_histogram(df):
 # creating training data and labels
 def preprocess_data(df):
     """
-    Docstring for preprocess_data
+    Preprocess the images and steering angles from the DataFrame.
     
     :param df: Description
     """
@@ -77,7 +77,7 @@ def preprocess_data(df):
 # data augmentation: randomly apply brightness, shift, flip to certain amount of images
 def augment_data(images, steering_angles):
     """
-    Docstring for augment_data
+    Augment the dataset by applying random transformations to the images.
     
     :param images: Description
     :param steering_angles: Description
@@ -129,7 +129,7 @@ def augment_data(images, steering_angles):
 
 
 # to be called from model.py to get training data and labels
-def prepare_data():
+def prepare_data() -> tuple[np.ndarray, np.ndarray]:
     df = load_driving_log()
     # plot_steering_histogram(df)
     images, steering_angles = preprocess_data(df)
