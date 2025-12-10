@@ -62,10 +62,14 @@ def preprocess_data(df):
         image = cv2.imread('images/' + image_paths[i])
         # crop the image (full width, [60-135px] height)
         image = image[60:135, :, :]
+        # apply Gaussian blur
+        image = cv2.GaussianBlur(image, (3, 3), 0)
         # convert image to YUV color space
         image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
         # resize image to 200x66 (as per NVIDIA model input)
-        image = cv2.resize(image, (66, 200))
+        image = cv2.resize(image, (200, 66))
+        # normalize to 0-1 range and convert to float32
+        image = image.astype(np.float32) / 255.0
         image_paths[i] = image
     return image_paths, steering_angles
 
@@ -81,14 +85,30 @@ def augment_data(images, steering_angles):
     augmented_images = []
     augmented_steering_angles = []
     for image, steering_angle in zip(images, steering_angles):
-        # Randomly apply brightness
+        # Ensure image is float for augmentation
+        if image.dtype == np.uint8:
+            image = image.astype(np.float32) / 255.0
+        
+        # Add original image
+        augmented_images.append(image)
+        augmented_steering_angles.append(steering_angle)
+        
+        # ALWAYS flip to balance left/right turns
+        flipped_image = cv2.flip(image, 1)
+        augmented_images.append(flipped_image)
+        augmented_steering_angles.append(-steering_angle)
+        
+        # Randomly apply brightness to both
         if np.random.rand() < 0.5:
-            hsv = cv2.cvtColor(image, cv2.COLOR_YUV2BGR)
-            hsv = cv2.cvtColor(hsv, cv2.COLOR_BGR2HSV)
+            # Convert to BGR then HSV for brightness adjustment
+            image_bgr = cv2.cvtColor((image * 255).astype(np.uint8), cv2.COLOR_YUV2BGR)
+            hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
             random_bright = .25 + np.random.uniform()
-            hsv[:, :, 2] = hsv[:, :, 2] * random_bright
-            image = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
+            hsv[:, :, 2] = np.clip(hsv[:, :, 2] * random_bright, 0, 255)
+            image_bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
+            image = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2YUV).astype(np.float32) / 255.0
+            augmented_images.append(image)
+            augmented_steering_angles.append(steering_angle)
         
         # Randomly shift image
         if np.random.rand() < 0.5:
@@ -113,9 +133,9 @@ def prepare_data():
     df = load_driving_log()
     # plot_steering_histogram(df)
     images, steering_angles = preprocess_data(df)
-    aug_images, aug_steering_angles = augment_data(images, steering_angles)
+    # aug_images, aug_steering_angles = augment_data(images, steering_angles)
     
-    return np.array(aug_images), np.array(aug_steering_angles)
+    return np.array(images), np.array(steering_angles)
     
 
     
