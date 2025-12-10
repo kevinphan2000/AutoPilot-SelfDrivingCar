@@ -1,87 +1,124 @@
 import numpy as np
+from math import ceil
+
 
 def data_generator(images, steering_angles, batch_size=32):
     """
-    Function to generate batches of training data
-    
-    :param images: images
-    :param steering_angles: steering angles
-    :param batch_size: batch size
-    :return: batches of (X_train, y_train)
+    Generate shuffled mini-batches for training or validation.
+
+    Parameters:
+        images: NumPy array of images, shape (N, H, W, 3)
+        steering_angles: NumPy array of angles, shape (N,)
+        batch_size: size of each mini-batch
+
+    Yields:
+        X_batch: float32 images, shape (B, H, W, 3)
+        y_batch: float32 angles, shape (B,)
     """
+    images = np.asarray(images)
+    steering_angles = np.asarray(steering_angles, dtype=np.float32)
     num_samples = len(images)
-    while True:  # Loop forever so the generator never terminates
+
+    while True:
+        # shuffle indices each epoch
+        indices = np.random.permutation(num_samples)
+
         for offset in range(0, num_samples, batch_size):
-            batch_images = images[offset:offset + batch_size]
-            batch_steering_angles = steering_angles[offset:offset + batch_size]
-            
-            X_train = np.array(batch_images)
-            y_train = np.array(batch_steering_angles)
-            yield X_train, y_train
+            batch_indices = indices[offset:offset + batch_size]
 
-# train the model
-def train_model(model, train_images, train_steering_angles,
-                validation_images, validation_steering_angles,
-                batch_size=32, epochs=5):
-    """
-    Function to train the model using generators
-    
-    :param model: model to be trained
-    :param train_images: training images
-    :param train_steering_angles: training steering angles
-    :param validation_images: validation images
-    :param validation_steering_angles: validation steering angles
-    :param batch_size: batch size
-    :param epochs: epochs
-    :return: trained model
-    """
-    # Create generators
-    train_generator = data_generator(train_images, train_steering_angles, batch_size)
-    validation_generator = data_generator(validation_images, validation_steering_angles, batch_size)
-    
-    # Train the model using fit_generator
-    model.fit(train_generator,
-              steps_per_epoch=len(train_images) // batch_size,
-              validation_data=validation_generator,
-              validation_steps=len(validation_images) // batch_size,
-              epochs=epochs)
-    return model
+            batch_images = images[batch_indices]
+            batch_steering = steering_angles[batch_indices]
 
-# creating a model
+            X_batch = batch_images.astype(np.float32)
+            y_batch = batch_steering.astype(np.float32)
+
+            yield X_batch, y_batch
+
+
+def train_model(
+    model,
+    train_images,
+    train_steering_angles,
+    validation_images,
+    validation_steering_angles,
+    batch_size=32,
+    epochs=5,
+):
+    """
+    Train the model with generators.
+
+    Parameters:
+        model: compiled Keras model
+        train_images: training images
+        train_steering_angles: training angles
+        validation_images: validation images
+        validation_steering_angles: validation angles
+        batch_size: mini-batch size
+        epochs: number of epochs
+
+    Returns:
+        trained model
+    """
+    train_generator = data_generator(
+        train_images, train_steering_angles, batch_size
+    )
+    validation_generator = data_generator(
+        validation_images, validation_steering_angles, batch_size
+    )
+
+    steps_per_epoch = ceil(len(train_images) / batch_size)
+    validation_steps = ceil(len(validation_images) / batch_size)
+
+    history = model.fit(
+        train_generator,
+        steps_per_epoch=steps_per_epoch,
+        validation_data=validation_generator,
+        validation_steps=validation_steps,
+        epochs=epochs,
+        verbose=1,
+    )
+    return model, history
+
+
 def create_model():
     """
-    Function to create the CNN model based on NVIDIA architecture
+    Create a CNN model based on the NVIDIA architecture.
     """
     from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import Conv2D, Dense, Flatten, Dropout, Lambda, MaxPooling2D
+    from tensorflow.keras.layers import (
+        Conv2D,
+        Dense,
+        Flatten,
+        Dropout,
+        Lambda,
+    )
 
     model = Sequential()
-    # Normalization layer
+
+    # Normalization
     model.add(Lambda(lambda x: x / 127.5 - 1.0, input_shape=(66, 200, 3)))
-    # Convolutional layers
-    # Convolutional Layer 1 (5,5) kernel with 24 filters and stride of 2
-    model.add(Conv2D(24, (5, 5), strides=(2, 2), activation='relu'))
-    # Convolutional Layer 2 (5,5) kernel with 36 filters and stride of 2
-    model.add(Conv2D(36, (5, 5), strides=(2, 2), activation='relu'))
-    # Convolutional Layer 3 (5,5) kernel with 48 filters and stride of 2
-    model.add(Conv2D(48, (5, 5), strides=(2, 2), activation='relu'))
-    # Convolutional Layer 4 (3,3) kernel with 64 filters
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    # Convolutional Layer 5 (3,3) kernel with 64 filters
-    model.add(Conv2D(64, (3, 3), activation='relu'))
-    # Flattening layer
+
+    # Convolution layers
+    model.add(Conv2D(24, (5, 5), strides=(2, 2), activation="relu"))
+    model.add(Conv2D(36, (5, 5), strides=(2, 2), activation="relu"))
+    model.add(Conv2D(48, (5, 5), strides=(2, 2), activation="relu"))
+    model.add(Conv2D(64, (3, 3), activation="relu"))
+    model.add(Conv2D(64, (3, 3), activation="relu"))
+
+    # Flatten
     model.add(Flatten())
-    # Fully connected layers
-    model.add(Dense(100, activation='relu'))
-    model.add(Dense(50, activation='relu'))
-    model.add(Dense(10, activation='relu'))
+
+    # Fully connected layers with dropout for regularization
+    model.add(Dense(100, activation="relu"))
+    model.add(Dropout(0.5))
+    model.add(Dense(50, activation="relu"))
+    model.add(Dropout(0.5))
+    model.add(Dense(10, activation="relu"))
+
     # Output layer
     model.add(Dense(1))
-    
-    
-    # Compile the model
-    model.compile(optimizer='adam', loss='mse')
-    
+
+    model.compile(optimizer="adam", loss="mse")
     return model
 
 
@@ -92,21 +129,32 @@ if __name__ == "__main__":
     # Load and preprocess data
     df = load_driving_log()
     images, steering_angles = preprocess_data(df)
-    
+
     # Augment data
     images, steering_angles = augment_data(images, steering_angles)
-    
-    # Split data into training and validation sets
+
+    # Split into train and validation
     train_images, validation_images, train_steering_angles, validation_steering_angles = train_test_split(
-        images, steering_angles, test_size=0.2, random_state=42)
-    
+        images,
+        steering_angles,
+        test_size=0.2,
+        random_state=42,
+        shuffle=True,
+    )
+
     # Create model
     model = create_model()
-    
+
     # Train model
-    model = train_model(model, train_images, train_steering_angles,
-                        validation_images, validation_steering_angles,
-                        batch_size=32, epochs=5)
-    
-    # Save the trained model
-    model.save('model.h5')
+    model, history = train_model(
+        model,
+        train_images,
+        train_steering_angles,
+        validation_images,
+        validation_steering_angles,
+        batch_size=32,
+        epochs=5,
+    )
+
+    # Save model
+    model.save("model.h5")
