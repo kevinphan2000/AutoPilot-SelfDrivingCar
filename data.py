@@ -78,17 +78,13 @@ def preprocess_data(df: pd.DataFrame, image_dir: str = "images"):
 
         image = cv2.imread(full_path)
         if image is None:
-            # Skip missing or unreadable images
             continue
 
-        # Crop road area (same as your original)
         image = image[60:135, :, :]  # shape about (75, W, 3)
 
-        # Convert BGR to YUV
+
         image = cv2.cvtColor(image, cv2.COLOR_BGR2YUV)
 
-        # Resize to expected input size
-        # Note: cv2.resize uses (width, height)
         image = cv2.resize(image, (66, 200))
 
         images.append(image)
@@ -126,7 +122,6 @@ def augment_data(images: np.ndarray, steering_angles: np.ndarray):
         img = image.copy()
         steering = float(angle)
 
-        # Random brightness
         if np.random.rand() < 0.5:
             bgr = cv2.cvtColor(img, cv2.COLOR_YUV2BGR)
             hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
@@ -135,7 +130,6 @@ def augment_data(images: np.ndarray, steering_angles: np.ndarray):
             bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
             img = cv2.cvtColor(bgr, cv2.COLOR_BGR2YUV)
 
-        # Random translation
         if np.random.rand() < 0.5:
             translation_x = 100 * (np.random.rand() - 0.5)
             translation_y = 10 * (np.random.rand() - 0.5)
@@ -151,7 +145,6 @@ def augment_data(images: np.ndarray, steering_angles: np.ndarray):
                 borderMode=cv2.BORDER_REPLICATE,
             )
 
-        # Random horizontal flip
         if np.random.rand() < 0.5:
             img = cv2.flip(img, 1)
             steering = -steering

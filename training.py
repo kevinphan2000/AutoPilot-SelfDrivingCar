@@ -1,5 +1,7 @@
 import numpy as np
 from math import ceil
+from data import load_driving_log, preprocess_data, augment_data
+from TestSimulation import create_model  # or from training import create_model, if you moved it
 
 
 def data_generator(images, steering_angles, batch_size=32):
